@@ -5,10 +5,10 @@
 #SBATCH --partition=cpu_partition
 #SBATCH --nodes=1
 #SBATCH --exclusive
-##SBATCH --partition=gpu_partition
-##SBATCH --gres=gpu:1
-##SBATCH --ntasks=1
-##SBATCH --cpus-per-task=8
+#SBATCH --partition=gpu_partition
+#SBATCH --gres=gpu:1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
 #SBATCH --time=0-01:00:00
 
 hostname; pwd; date
