@@ -15,8 +15,8 @@ hostname; pwd; date
 
 num_mesh_1d=512         # Size of grid along 1 dimension, box size is fixed
                         # by training resolution: (512 particles) / (1.e3 Mpc/h)
-power_spectrum_files="" # File(s) containing power spectra
-style_files=""                                # File(s) containing cosmology parameters, two columns  k [h/Mpc] P(k) [(Mpc/h)**3]
+power_spectrum_files="" # File(s) containing power spectra, two columns  k [h/Mpc] P(k) [(Mpc/h)**3]
+style_files=""          # File(s) containing cosmology parameters
 output_dir=""           # Path to directory where output will be written
 
 # generate is the same for d2d and v2v, so it does not matter
