@@ -65,7 +65,7 @@ class FieldDataset(Dataset):
             raise FileNotFoundError('file not found for {}'.format(in_patterns))
         self.is_read_once = np.full(self.nfile, False)
 
-        self.style_col = [0]  # HACK, taking Omega_m
+        self.style_col = [0]
         self.style_size = np.loadtxt(self.style_files[0])[self.style_col].shape[0]
         self.in_chan = [np.load(f, mmap_mode='r').shape[0]
                         for f in self.in_files[0]]
@@ -194,11 +194,9 @@ class FieldDataset(Dataset):
              self.crop[argsort_perm_axes] * self.scale_factor,
              self.tgt_pad[argsort_perm_axes])
 
-        style = torch.from_numpy(style.astype(np.float32))
-        in_fields = [torch.from_numpy(f.astype(np.float32))
-                     for f in in_fields]
-        tgt_fields = [torch.from_numpy(f.astype(np.float32))
-                      for f in tgt_fields]
+        style = torch.from_numpy(style).to(torch.float32)
+        in_fields = [torch.from_numpy(f).to(torch.float32) for f in in_fields]
+        tgt_fields = [torch.from_numpy(f).to(torch.float32) for f in tgt_fields]
 
         # HACK
         style -= torch.tensor([0.3])
@@ -322,9 +320,7 @@ class FieldDataset(Dataset):
 
 def fill(field, patch, anchor):
     ndim = len(anchor)
-    if not field.ndim == patch.ndim == 1 + ndim:
-        raise RuntimeError('ndim mismatch: '
-                           f'{field.ndim, patch.ndim, 1 + ndim}')
+    assert field.ndim == patch.ndim == 1 + ndim, 'ndim mismatch'
 
     ind = [slice(None)]
     for d, (p, a, s) in enumerate(zip(
@@ -339,13 +335,10 @@ def fill(field, patch, anchor):
 
 
 def crop(fields, anchor, crop, pad):
-    if any(x.shape[1:] != fields[0].shape[1:] for x in fields[1:]):
-        raise RuntimeError(f'shape mismatch: {[x.shape[1:] for x in fields]}')
+    assert all(x.shape == fields[0].shape for x in fields), 'shape mismatch'
     size = fields[0].shape[1:]
     ndim = len(size)
-    if not ndim == len(anchor) == len(crop) == len(pad):
-        raise RuntimeError('ndim mismatch: '
-                           f'{ndim, len(anchor), len(crop), len(pad)}')
+    assert ndim == len(anchor) == len(crop) == len(pad), 'ndim mismatch'
 
     ind = [slice(None)]
     for d, (a, c, (p0, p1), s) in enumerate(zip(anchor, crop, pad, size)):
@@ -364,8 +357,7 @@ def crop(fields, anchor, crop, pad):
 
 
 def flip(fields, axes, ndim):
-    if ndim == 1:
-        raise RuntimeError('flipping is ambiguous for 1D scalars/vectors')
+    assert ndim > 1, 'flipping is ambiguous for 1D scalars/vectors'
 
     if axes is None:
         axes = torch.randint(2, (ndim,), dtype=torch.bool)
@@ -384,8 +376,7 @@ def flip(fields, axes, ndim):
 
 
 def perm(fields, axes, ndim):
-    if ndim == 1:
-        raise RuntimeError('permutation is not necessary for 1D fields')
+    assert ndim > 1, 'permutation is not necessary for 1D fields'
 
     if axes is None:
         axes = torch.randperm(ndim)
