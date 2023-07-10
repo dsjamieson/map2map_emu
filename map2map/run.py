@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 import torch.distributed as dist
 from torch.multiprocessing import spawn
 
-from .data.gen_fields import GenerateFieldDataset
+from .data.run_fields import RunFieldDataset
 from .data import norms
 from . import models
 from .utils import import_attr, load_model_state_dict
@@ -26,6 +26,7 @@ def node_worker(args):
     if args.num_threads != -1 :
         if args.threads_per_node > args.num_threads :
             args.threads_per_node = arg.num_threads
+
     if torch.cuda.is_available():
         args.gpus_per_node = torch.cuda.device_count()
         args.workers_per_node = args.gpus_per_node
@@ -72,26 +73,23 @@ def worker(local_rank, node, args):
         print()
         sys.stdout.flush()
 
-    generate_dataset = GenerateFieldDataset(
+    run_dataset = RunFieldDataset(
         style_pattern=args.style_pattern,
-        pk_pattern=args.pk_pattern,
+        in_pattern=args.in_pattern,
         out_pattern=args.out_pattern,
-        num_mesh_1d=args.num_mesh_1d,
-        device = device,
-        sphere_mode=args.sphere_mode,
         crop=args.crop,
     )
 
-    generate_loader = DataLoader(
-        generate_dataset,
+    run_loader = DataLoader(
+        run_dataset,
         batch_size=args.batch_size,
         shuffle=False,
         num_workers=args.loader_workers,
         pin_memory=True,
     )
 
-    style_size = generate_dataset.style_size
-    in_chan = generate_dataset.in_chan
+    style_size = run_dataset.style_size
+    in_chan = run_dataset.in_chan
     out_chan = in_chan
 
     if args.no_dis :
@@ -114,9 +112,9 @@ def worker(local_rank, node, args):
         load_model_state_dict(v2v_model, state['model'])
         v2v_model.eval()
 
-    generate(generate_loader, d2d_model, v2v_model, rank, args.world_size, device)
+    run(run_loader, d2d_model, v2v_model, rank, args.world_size, device)
 
-def generate(generate_loader, d2d_model, v2v_model, rank, world_size, device) :
+def run(run_loader, d2d_model, v2v_model, rank, world_size, device) :
 
     if d2d_model is not None and v2v_model is not None :
         write_chan = (3,) * 2
@@ -124,18 +122,6 @@ def generate(generate_loader, d2d_model, v2v_model, rank, world_size, device) :
         write_chan = (3,)
 
     with torch.no_grad() :
-
-        remainder = generate_loader.dataset.nout % world_size
-        num_mocks = generate_loader.dataset.nout // world_size + 1 if rank < remainder else generate_loader.dataset.nout // world_size
-        start_mock = rank * num_mocks if rank < remainder else rank * num_mocks + remainder
-        end_mock = start_mock + num_mocks
-        if rank == 0 :
-            pbar = tqdm(total = num_mocks)
-            pbar.set_description(f"Generating linear fields")
-        for mock in range(start_mock, end_mock) :
-            generate_loader.dataset.generate_linear_field(mock, device)
-            if rank == 0 :
-                pbar.update(1)
 
         dis_norm = torch.ones(1, dtype=torch.float64)
         norms.cosmology.dis(dis_norm)
@@ -152,10 +138,10 @@ def generate(generate_loader, d2d_model, v2v_model, rank, world_size, device) :
         dist.barrier()
 
         if rank == 0 :
-            pbar = tqdm(total = len(generate_loader))
-            pbar.set_description(f"Generating nonlinear fields")
+            pbar = tqdm(total = len(run_loader))
+            pbar.set_description(f"Mapping to nonlinear fields")
 
-        for i, data in enumerate(generate_loader):
+        for i, data in enumerate(run_loader):
 
             style, Om, input, out_dir = data['style'], data['Om'], data['input'], data['out_dir']
             style = style.to(device, non_blocking=True)
@@ -183,7 +169,7 @@ def generate(generate_loader, d2d_model, v2v_model, rank, world_size, device) :
             elif v2v_model is not None :
                 output = out_vel
                 out_paths = [[os.path.join(out_dir[0], 'vel')]]
-            generate_loader.dataset.assemble('_out', write_chan, output, out_paths)
+            run_loader.dataset.assemble('_out', write_chan, output, out_paths)
 
             if rank == 0 :
                 pbar.update(1)

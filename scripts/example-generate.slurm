@@ -9,6 +9,11 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=10
 
+#
+# Generates random gaussian dislpacements fields from tabulated power spectra, then
+# runs the forward model prediction on these
+#
+
 hostname; pwd; date
 
 num_mesh_1d=                                   # Size of grid along 1 dimension, box size is fixed
@@ -27,10 +32,10 @@ export TF_CPP_MIN_LOG_LEVEL=3
 
 srun python ./Map2Map/m2m.py generate \
     --num-mesh-1d "$num_mesh_1d" \
-    --gen-pk-pattern "$power_spectrum_files" \
-    --gen-style-pattern "$style_files" \
-    --gen-out-pattern "$output_dirs" \
-    --crop 128 --crop-step 128 --pad 48 \
-    --batches 1 --loader-workers 1
+    --pk-pattern "$power_spectrum_files" \
+    --style-pattern "$style_files" \
+    --out-pattern "$output_dirs" \
+    --crop 128 --batches 1 --loader-workers 1 # \
 #    --no_dis --no_vel # Can output either only dis, only vel, or both dis and vel
+
 date
