@@ -43,9 +43,8 @@ def worker(local_rank, node, args):
     if torch.cuda.is_available():
         os.environ["TORCH_DISTRIBUTED_DEBUG"]="DETAIL"
         os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
-        os.environ['CUDA_VISIBLE_DEVICES'] = str(local_rank)
-        os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-        device = torch.device('cuda', 0)
+        #os.environ['CUDA_VISIBLE_DEVICES'] = str(local_rank)
+        device = torch.device('cuda', local_rank)
         torch.backends.cudnn.benchmark = True
         rank = args.gpus_per_node * node + local_rank
     else:  # CPU multithreading
